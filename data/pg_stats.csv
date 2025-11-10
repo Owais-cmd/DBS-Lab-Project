@@ -1,0 +1,4 @@
+query,calls,total_exec_time,mean_exec_time,rows
+SELECT o.* FROM orders o JOIN users u ON o.user_id = u.id WHERE u.city = $1 LIMIT $2,404,454.90035999999986,1.1259909900990086,20200
+
+

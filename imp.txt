@@ -1,4 +1,6 @@
 source .venv/bin/activate
 docker-compose up -d
 psql -h localhost -p 5432 -U demo -d demo
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+streamlit run app/streamlit_app.py
 
