@@ -1,0 +1,29 @@
+[
+  {
+    "table": "users",
+    "column": "city",
+    "calls": 404,
+    "avg_time_ms": 1.13,
+    "index_exists": false,
+    "recommend": true,
+    "sample_query": "SELECT o.* FROM orders o JOIN users u ON o.user_id = u.id WHERE u.city = $1 LIMIT $2"
+  },
+  {
+    "table": "orders",
+    "column": "user_id",
+    "calls": 404,
+    "avg_time_ms": 1.13,
+    "index_exists": false,
+    "recommend": true,
+    "sample_query": "SELECT o.* FROM orders o JOIN users u ON o.user_id = u.id WHERE u.city = $1 LIMIT $2"
+  },
+  {
+    "table": "users",
+    "column": "id",
+    "calls": 404,
+    "avg_time_ms": 1.13,
+    "index_exists": false,
+    "recommend": true,
+    "sample_query": "SELECT o.* FROM orders o JOIN users u ON o.user_id = u.id WHERE u.city = $1 LIMIT $2"
+  }
+]
