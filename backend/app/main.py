@@ -205,11 +205,115 @@ def by_age(db: Session = Depends(get_db)):
 @app.get("/mostOrderedItem")
 def most_ordered_item(db: Session = Depends(get_db)):
     results = (
-        db.query(Item.name, func.count(Order.id).label("order_count"))
-        .join(Order)
-        .group_by(Item.name)
-        .order_by(func.count(Order.id).desc())
+        db.query(
+            Item.id,
+            Item.name,
+            func.sum(OrderItem.quantity).label("total_ordered")
+        )
+        .join(OrderItem, Item.id == OrderItem.item_id)
+        .group_by(Item.id)
+        .order_by(func.sum(OrderItem.quantity).desc())
+        .first()
+    )
+    return results
+
+@app.get("/expensiveOrders")
+def expensive_orders(db: Session = Depends(get_db)):
+    results = (
+        db.query(
+            Order.id,
+            func.sum(Item.price * OrderItem.quantity).label("total_price")
+        )
+        .join(OrderItem, Order.id == OrderItem.order_id)
+        .join(Item, Item.id == OrderItem.item_id)
+        .group_by(Order.id)
+        .order_by(func.sum(Item.price * OrderItem.quantity).desc())
         .limit(10)
         .all()
     )
     return results
+
+@app.get("/comparison/{idx_name}")
+def comparison(idx_name: str, db: Session = Depends(get_db)):
+    try:
+        # 1️⃣ Get table + column for this index
+        result = db.execute(
+            """
+            SELECT tablename, indexdef
+            FROM pg_indexes
+            WHERE indexname = :idx_name
+            """,
+            {"idx_name": idx_name}
+        ).fetchone()
+
+        if not result:
+            raise HTTPException(404, detail="Index not found in pg_indexes")
+
+        table_name = result[0]
+
+        # extract column list
+        # indexdef example: CREATE INDEX idx_customer_name ON customers USING btree (name)
+        indexdef = result[1]
+        col_part = indexdef.split("(")[1].split(")")[0]   # -> "name"
+        column_list = col_part.split(",")
+
+        column_name = column_list[0].strip()  # assume single-column index
+
+        # -----------------------------------------------------------------------
+        # 2️⃣ Connect raw psycopg2 (needed to force index or seq scan)
+        # -----------------------------------------------------------------------
+        conn = psycopg2.connect(
+            host="localhost",
+            database="yourdb",
+            user="youruser",
+            password="yourpassword"
+        )
+        cur = conn.cursor()
+
+        # -----------------------------------------------------------------------
+        # 3️⃣ FORCE SEQ SCAN
+        # -----------------------------------------------------------------------
+        cur.execute("SET enable_indexscan = OFF;")
+        cur.execute("SET enable_bitmapscan = OFF;")
+
+        seq_query = f"SELECT * FROM {table_name} WHERE {column_name} IS NOT NULL;"
+        
+        t1 = time.time()
+        cur.execute(seq_query)
+        cur.fetchall()
+        seq_time = time.time() - t1
+
+        # -----------------------------------------------------------------------
+        # 4️⃣ FORCE INDEX SCAN
+        # -----------------------------------------------------------------------
+        cur.execute("RESET enable_indexscan = ON;")
+        cur.execute("RESET enable_bitmapscan = ON;")
+
+        idx_query = f"SELECT * FROM {table_name} WHERE {column_name} IS NOT NULL;"
+
+        t2 = time.time()
+        cur.execute(idx_query)
+        cur.fetchall()
+        idx_time = time.time() - t2
+
+        # -----------------------------------------------------------------------
+        # 5️⃣ Return comparison
+        # -----------------------------------------------------------------------
+        return {
+            "index_name": idx_name,
+            "table": table_name,
+            "column": column_name,
+            "seq_scan_time": seq_time,
+            "index_scan_time": idx_time,
+            "faster_scan": "index_scan" if idx_time < seq_time else "seq_scan"
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    finally:
+        try:
+            cur.close()
+            conn.close()
+        except:
+            pass

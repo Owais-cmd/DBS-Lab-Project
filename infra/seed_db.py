@@ -1,68 +1,113 @@
 import psycopg2
 from random import choice, randint
+import hashlib
+import random
 
 conn = psycopg2.connect(dbname='demo', user='demo', password='demo', host='localhost')
 cur = conn.cursor()
+
+# Drop existing tables if they exist (for clean reseeding)
+#cur.execute("DROP TABLE IF EXISTS order_items CASCADE;")
+#cur.execute("DROP TABLE IF EXISTS orders CASCADE;")
+#cur.execute("DROP TABLE IF EXISTS items CASCADE;")
+#cur.execute("DROP TABLE IF EXISTS users CASCADE;")
 
 # Create users table
 cur.execute("""
 CREATE TABLE IF NOT EXISTS users (
     id serial PRIMARY KEY,
-    name text,
-    city text,
-    age int
+    email text UNIQUE NOT NULL,
+    hashed_password text NOT NULL,
+    is_admin boolean DEFAULT false,
+    created_at timestamp DEFAULT CURRENT_TIMESTAMP,
+    city text NOT NULL,
+    age int NOT NULL
 );
 """)
 
-# Create items table: products that users order (create items before orders so FK can reference it)
+# Create items table
 cur.execute("""
 CREATE TABLE IF NOT EXISTS items (
     id serial PRIMARY KEY,
-    name text,
+    name text NOT NULL,
     category text,
-    price numeric
+    price numeric DEFAULT 0
 );
 """)
 
-# Create orders table with foreign keys to users and items
+# Create orders table
 cur.execute("""
 CREATE TABLE IF NOT EXISTS orders (
     id serial PRIMARY KEY,
-    user_id int REFERENCES users(id),
-    item_id int REFERENCES items(id),
-    amount numeric,
-    status text
+    user_id int NOT NULL REFERENCES users(id),
+    status text DEFAULT 'placed',
+    created_at timestamp DEFAULT CURRENT_TIMESTAMP
+);
+""")
+
+# Create order_items table (junction table)
+cur.execute("""
+CREATE TABLE IF NOT EXISTS order_items (
+    id serial PRIMARY KEY,
+    order_id int NOT NULL REFERENCES orders(id),
+    item_id int NOT NULL REFERENCES items(id),
+    quantity int DEFAULT 1,
+    price numeric
 );
 """)
 
 # Insert synthetic data
 cities = ["Delhi", "Mumbai", "Pune", "Bangalore", "Hyderabad"]
-statuses = ["pending", "shipped", "delivered", "cancelled"]
+statuses = ["placed", "cancelled", "delivered"]
+item_categories = ["electronics", "clothing", "books", "home", "toys"]
 
 # Insert users
-NUM_USERS = 10000
+NUM_USERS = 5000
 for i in range(1, NUM_USERS + 1):
-    cur.execute("INSERT INTO users (name, city, age) VALUES (%s, %s, %s)",
-                (f"name{i}", choice(cities), randint(18, 60)))
+    email = f"user{i}@example.com"
+    # Simple hash for demo purposes
+    hashed_password = hashlib.sha256(f"password{i}".encode()).hexdigest()
+    cur.execute(
+        "INSERT INTO users (email, hashed_password, city, age) VALUES (%s, %s, %s, %s)",
+        (email, hashed_password, choice(cities), randint(18, 60))
+    )
 
-# Insert a simple catalog of items
-item_categories = ["electronics", "clothing", "books", "home", "toys"]
-NUM_ITEMS = 200
+# Insert items
+NUM_ITEMS = 10
 for i in range(1, NUM_ITEMS + 1):
-    cur.execute("INSERT INTO items (name, category, price) VALUES (%s, %s, %s)",
-                (f"item{i}", choice(item_categories), randint(50, 5000)))
+    x=random.randint(1,10)
+    cur.execute(
+        "INSERT INTO items (name, category, price) VALUES (%s, %s, %s)",
+        (f"item{x}", choice(item_categories), randint(50, 5000))
+    )
 
-# Insert orders and associate an item with each order (user_id and item_id are correlated randomly)
+# Insert orders and order_items
 NUM_ORDERS = 20000
-# Insert orders and associate an item with each order correlated to the user_id
 for i in range(1, NUM_ORDERS + 1):
     user_id = randint(1, NUM_USERS)
-    # correlate item choice with user_id so the same user tends to order the same items
-    item_id = ((user_id - 1) % NUM_ITEMS) + 1
+    order_status = choice(statuses)
+    
+    # Insert order
     cur.execute(
-        "INSERT INTO orders (user_id, item_id, amount, status) VALUES (%s, %s, %s, %s)",
-        (user_id, item_id, randint(100, 10000), choice(statuses))
+        "INSERT INTO orders (user_id, status) VALUES (%s, %s) RETURNING id",
+        (user_id, order_status)
     )
+    order_id = cur.fetchone()[0]
+    x=[]
+    # Insert 1-3 items per order
+    num_items_in_order = randint(1, 3)
+    for _ in range(num_items_in_order):
+        item_id = randint(1, NUM_ITEMS)
+        while item_id in x:
+            item_id=randint(1,NUM_ITEMS)
+        x.append(item_id)
+        quantity = randint(1, 5)
+        price = randint(50, 5000)
+        
+        cur.execute(
+            "INSERT INTO order_items (order_id, item_id, quantity, price) VALUES (%s, %s, %s, %s)",
+            (order_id, item_id, quantity, price)
+        )
 
 conn.commit()
 cur.close()
