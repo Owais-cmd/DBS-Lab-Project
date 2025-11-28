@@ -12,3 +12,11 @@ sqlparse
 streamlit
 apscheduler
 joblib
+sqlalchemy 
+alembic
+passlib[bcrypt] 
+python-jose[cryptography] 
+python-multipart
+pydantic 
+email-validator 
+python-dotenv

@@ -1,13 +1,15 @@
 # app/main.py
 import os
 import json
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends,Form
 from pydantic import BaseModel
 import psycopg2
 from database import get_db,init_db
-from models import User, Item, Order
+from models import User, Item, Order , OrderItem
 from sqlalchemy import func
 from sqlalchemy.orm import Session
+from sqlalchemy import text
+import time
 
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://demo:demo@localhost:5432/demo")
@@ -74,7 +76,7 @@ def get_indexes():
             ) a
             JOIN pg_indexes i ON i.indexname = a.index_name
             WHERE i.schemaname = 'public'
-            ORDER BY a.ts DESC
+            ORDER BY a.ts DESC;
         """)
         indexes = []
         for row in cur.fetchall():
@@ -118,17 +120,24 @@ def apply_index(req: ApplyRequest):
     if req.force:
         try:
             # Check current indexes count from audit table (only successful creates)
-            cur.execute("""
-                SELECT index_name, table_name, column_name, ts 
-                FROM index_audit 
-                WHERE action = 'create' 
-                AND index_name IN (
-                    SELECT indexname FROM pg_indexes 
-                    WHERE schemaname = 'public'
-                )
-                ORDER BY ts ASC
+            if(idx_name in existing):
+                return {"status":"exists", "index": idx_name}
+            cur.execute("""SELECT *
+              FROM (
+                 SELECT DISTINCT ON (index_name)
+                    index_name, table_name, column_name, ts
+                    FROM index_audit
+                    WHERE action = 'create'
+                    AND index_name IN (
+                        SELECT indexname FROM pg_indexes 
+                        WHERE schemaname = 'public'
+                    )
+                ORDER BY index_name, ts DESC   -- pick the latest row per index
+                ) sub
+                ORDER BY ts ASC;                  -- now sort the final results
             """)
             current_indexes = cur.fetchall()
+
             
             # If we have 3 or more indexes, delete the oldest one
             deleted_index = None
@@ -182,7 +191,7 @@ def by_city(db: Session = Depends(get_db)):
         .group_by(User.city)
         .all()
     )
-    return results
+    return [{"city": city, "user_count": count} for city, count in results]
 
 @app.get("/status")
 def status(db: Session = Depends(get_db)):
@@ -191,7 +200,7 @@ def status(db: Session = Depends(get_db)):
         .group_by(Order.status)
         .all()
     )
-    return results
+    return [{"Status": status, "order_count": order_count} for status, order_count in results]
 
 @app.get("/byAge")
 def by_age(db: Session = Depends(get_db)):
@@ -200,7 +209,7 @@ def by_age(db: Session = Depends(get_db)):
         .group_by(User.age)
         .all()
     )
-    return results
+    return [{"Status": Age, "order_count": user_count} for Age, user_count in results]
 
 @app.get("/mostOrderedItem")
 def most_ordered_item(db: Session = Depends(get_db)):
@@ -215,7 +224,8 @@ def most_ordered_item(db: Session = Depends(get_db)):
         .order_by(func.sum(OrderItem.quantity).desc())
         .first()
     )
-    return results
+    print(results)
+    return [{"id": results[0], "name": results[1],"total1_ordered":results[2]} ]
 
 @app.get("/expensiveOrders")
 def expensive_orders(db: Session = Depends(get_db)):
@@ -231,20 +241,21 @@ def expensive_orders(db: Session = Depends(get_db)):
         .limit(10)
         .all()
     )
-    return results
+    print(results)
+    return [{"id": results[0][0], "Sum": results[0][1]} ]
 
 @app.get("/comparison/{idx_name}")
 def comparison(idx_name: str, db: Session = Depends(get_db)):
     try:
         # 1️⃣ Get table + column for this index
         result = db.execute(
-            """
-            SELECT tablename, indexdef
-            FROM pg_indexes
-            WHERE indexname = :idx_name
-            """,
-            {"idx_name": idx_name}
-        ).fetchone()
+    text("""
+        SELECT tablename, indexdef
+        FROM pg_indexes
+        WHERE indexname = :idx_name
+    """),
+    {"idx_name": idx_name}
+).fetchone()
 
         if not result:
             raise HTTPException(404, detail="Index not found in pg_indexes")
@@ -262,12 +273,7 @@ def comparison(idx_name: str, db: Session = Depends(get_db)):
         # -----------------------------------------------------------------------
         # 2️⃣ Connect raw psycopg2 (needed to force index or seq scan)
         # -----------------------------------------------------------------------
-        conn = psycopg2.connect(
-            host="localhost",
-            database="yourdb",
-            user="youruser",
-            password="yourpassword"
-        )
+        conn = get_conn()
         cur = conn.cursor()
 
         # -----------------------------------------------------------------------
@@ -286,8 +292,8 @@ def comparison(idx_name: str, db: Session = Depends(get_db)):
         # -----------------------------------------------------------------------
         # 4️⃣ FORCE INDEX SCAN
         # -----------------------------------------------------------------------
-        cur.execute("RESET enable_indexscan = ON;")
-        cur.execute("RESET enable_bitmapscan = ON;")
+        cur.execute("RESET enable_indexscan ;")
+        cur.execute("RESET enable_bitmapscan ;")
 
         idx_query = f"SELECT * FROM {table_name} WHERE {column_name} IS NOT NULL;"
 
