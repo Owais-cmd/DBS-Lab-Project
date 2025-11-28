@@ -18,10 +18,10 @@ CREATE TABLE IF NOT EXISTS users (
     id serial PRIMARY KEY,
     email text UNIQUE NOT NULL,
     hashed_password text NOT NULL,
+    name text NOT NULL,
     is_admin boolean DEFAULT false,
     created_at timestamp DEFAULT CURRENT_TIMESTAMP,
-    city text NOT NULL,
-    age int NOT NULL
+    city text NOT NULL
 );
 """)
 
@@ -29,9 +29,11 @@ CREATE TABLE IF NOT EXISTS users (
 cur.execute("""
 CREATE TABLE IF NOT EXISTS items (
     id serial PRIMARY KEY,
-    name text NOT NULL,
+    name text UNIQUE NOT NULL,
+    description text,
     category text,
-    price numeric DEFAULT 0
+    price numeric DEFAULT 0,
+    created_at timestamp DEFAULT CURRENT_TIMESTAMP
 );
 """)
 
@@ -40,7 +42,8 @@ cur.execute("""
 CREATE TABLE IF NOT EXISTS orders (
     id serial PRIMARY KEY,
     user_id int NOT NULL REFERENCES users(id),
-    status text DEFAULT 'placed',
+    status text DEFAULT 'cart',
+    total_amount numeric DEFAULT 0,
     created_at timestamp DEFAULT CURRENT_TIMESTAMP
 );
 """)
@@ -65,20 +68,20 @@ item_categories = ["electronics", "clothing", "books", "home", "toys"]
 NUM_USERS = 5000
 for i in range(1, NUM_USERS + 1):
     email = f"user{i}@example.com"
+    name = f"User {i}"
     # Simple hash for demo purposes
     hashed_password = hashlib.sha256(f"password{i}".encode()).hexdigest()
     cur.execute(
-        "INSERT INTO users (email, hashed_password, city, age) VALUES (%s, %s, %s, %s)",
-        (email, hashed_password, choice(cities), randint(18, 60))
+        "INSERT INTO users (email, hashed_password, name, city) VALUES (%s, %s, %s, %s)",
+        (email, hashed_password, name, choice(cities))
     )
 
 # Insert items
-NUM_ITEMS = 10
+NUM_ITEMS = 200
 for i in range(1, NUM_ITEMS + 1):
-    x=random.randint(1,10)
     cur.execute(
-        "INSERT INTO items (name, category, price) VALUES (%s, %s, %s)",
-        (f"item{x}", choice(item_categories), randint(50, 5000))
+        "INSERT INTO items (name, description, category, price) VALUES (%s, %s, %s, %s)",
+        (f"Item {i}", f"Description for item {i}", choice(item_categories), randint(50, 5000))
     )
 
 # Insert orders and order_items
@@ -87,27 +90,39 @@ for i in range(1, NUM_ORDERS + 1):
     user_id = randint(1, NUM_USERS)
     order_status = choice(statuses)
     
-    # Insert order
+    # Insert order with calculated total
     cur.execute(
-        "INSERT INTO orders (user_id, status) VALUES (%s, %s) RETURNING id",
-        (user_id, order_status)
+        "INSERT INTO orders (user_id, status, total_amount) VALUES (%s, %s, %s) RETURNING id",
+        (user_id, order_status, 0)  # Will update total_amount after adding items
     )
     order_id = cur.fetchone()[0]
-    x=[]
-    # Insert 1-3 items per order
+    
+    # Insert 1-3 unique items per order
+    x = []
     num_items_in_order = randint(1, 3)
+    total_amount = 0
+    
     for _ in range(num_items_in_order):
+        # Ensure unique items in each order
         item_id = randint(1, NUM_ITEMS)
         while item_id in x:
-            item_id=randint(1,NUM_ITEMS)
+            item_id = randint(1, NUM_ITEMS)
         x.append(item_id)
+        
         quantity = randint(1, 5)
         price = randint(50, 5000)
+        total_amount += price * quantity
         
         cur.execute(
             "INSERT INTO order_items (order_id, item_id, quantity, price) VALUES (%s, %s, %s, %s)",
             (order_id, item_id, quantity, price)
         )
+    
+    # Update order total_amount
+    cur.execute(
+        "UPDATE orders SET total_amount = %s WHERE id = %s",
+        (total_amount, order_id)
+    )
 
 conn.commit()
 cur.close()
