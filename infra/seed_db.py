@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS users (
 cur.execute("""
 CREATE TABLE IF NOT EXISTS items (
     id serial PRIMARY KEY,
-    name text UNIQUE NOT NULL,
+    name text NOT NULL,
     description text,
     category text,
     price numeric DEFAULT 0,
