@@ -6,6 +6,7 @@ import { Button } from '@/lib/ui/button';
 import { Input } from '@/lib/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/lib/ui/card';
 import { ShoppingCart, Trash2, Loader2, X } from 'lucide-react';
+import { formatPriceSimple } from '@/lib/priceFormatter';
 
 export const CartPage: React.FC = () => {
   const navigate = useNavigate();
@@ -93,10 +94,20 @@ export const CartPage: React.FC = () => {
                       <Card className="overflow-hidden">
                         <CardContent className="p-6 flex gap-6 items-start">
                           {/* Product Image */}
-                          <div className="w-24 h-24 bg-gradient-to-br from-red-100 to-red-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <div className="text-red-400 text-3xl font-bold">
+                          <div className="w-24 h-24 bg-gradient-to-br from-red-100 to-red-50 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden relative">
+                            <img
+                              src={item.image_url || ''}
+                              alt={item.name}
+                              className="w-full h-full object-cover"
+                              crossOrigin="anonymous"
+                              referrerPolicy="no-referrer"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = 'none';
+                              }}
+                            />
+                            <span className="absolute text-2xl text-red-400 font-bold" style={{ display: item.image_url ? 'none' : 'block' }}>
                               {item.name.charAt(0)}
-                            </div>
+                            </span>
                           </div>
 
                           {/* Product Details */}
@@ -108,7 +119,7 @@ export const CartPage: React.FC = () => {
                               {item.description}
                             </p>
                             <p className="font-bold text-red-500">
-                              ${item.price.toFixed(2)}
+                              {formatPriceSimple(item.price)}
                             </p>
                           </div>
 
@@ -150,7 +161,7 @@ export const CartPage: React.FC = () => {
 
                           {/* Subtotal */}
                           <div className="text-right font-semibold text-slate-900">
-                            ${(item.price * item.quantity).toFixed(2)}
+                            {formatPriceSimple(item.price * item.quantity)}
                           </div>
                         </CardContent>
                       </Card>
@@ -176,11 +187,11 @@ export const CartPage: React.FC = () => {
                   <div className="space-y-3 pb-4 border-b border-slate-200">
                     <div className="flex justify-between text-slate-600">
                       <span>Subtotal</span>
-                      <span>${cartTotal.toFixed(2)}</span>
+                      <span>{formatPriceSimple(cartTotal)}</span>
                     </div>
                     <div className="flex justify-between text-slate-600">
                       <span>Tax (8%)</span>
-                      <span>${tax.toFixed(2)}</span>
+                      <span>{formatPriceSimple(tax)}</span>
                     </div>
                     <div className="flex justify-between text-slate-600">
                       <span>Shipping</span>
@@ -190,7 +201,7 @@ export const CartPage: React.FC = () => {
 
                   <div className="flex justify-between text-lg font-bold text-slate-900">
                     <span>Total</span>
-                    <span className="text-red-500">${finalTotal.toFixed(2)}</span>
+                    <span className="text-red-500">{formatPriceSimple(finalTotal)}</span>
                   </div>
 
                   <motion.button

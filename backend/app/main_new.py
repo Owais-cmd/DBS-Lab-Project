@@ -498,7 +498,7 @@ def apply_index(
         cur.execute("""
             INSERT INTO index_audit (action, index_name, table_name, column_name, user_name, details)
             VALUES (%s, %s, %s, %s, %s, %s)
-        """, ('create', index_name, request.table, request.column, request.user, {}))
+        """, ('create', index_name, request.table, request.column, request.user, json.dumps({})))
         conn.commit()
         
         # Check max indexes (keep only 3)
@@ -516,7 +516,7 @@ def apply_index(
             cur.execute("""
                 INSERT INTO index_audit (action, index_name, table_name, column_name, user_name, details)
                 VALUES (%s, %s, %s, %s, %s, %s)
-            """, ('delete', old_index, request.table, request.column, request.user, {}))
+            """, ('delete', old_index, request.table, request.column, request.user, json.dumps({})))
             deleted_index = old_index
             conn.commit()
         

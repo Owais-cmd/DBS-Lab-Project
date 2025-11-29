@@ -5,6 +5,7 @@ import { Button } from '@/lib/ui/button';
 import { Badge } from '@/lib/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/lib/ui/card';
 import { ShoppingCart, Heart, Star, Loader2, AlertCircle } from 'lucide-react';
+import { formatPriceSimple } from '@/lib/priceFormatter';
 
 export const ShoppingPage: React.FC = () => {
   const { products, loading, fetchProducts } = useProductStore();
@@ -89,11 +90,21 @@ export const ShoppingPage: React.FC = () => {
                   className="h-full"
                 >
                   <Card className="overflow-hidden hover:shadow-lg transition-shadow h-full flex flex-col">
-                    {/* Product Image Placeholder */}
+                    {/* Product Image */}
                     <div className="w-full h-48 bg-gradient-to-br from-red-100 to-red-50 flex items-center justify-center relative overflow-hidden">
-                      <div className="text-red-400 text-4xl font-bold">
+                      <img
+                        src={product.image_url || ''}
+                        alt={product.name}
+                        className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                        crossOrigin="anonymous"
+                        referrerPolicy="no-referrer"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                      <span className="absolute text-4xl text-red-400 font-bold" style={{ display: product.image_url ? 'none' : 'block' }}>
                         {product.name.charAt(0)}
-                      </div>
+                      </span>
                       <motion.button
                         whileHover={{ scale: 1.2 }}
                         whileTap={{ scale: 0.9 }}
@@ -123,7 +134,7 @@ export const ShoppingPage: React.FC = () => {
                     <CardContent className="space-y-4">
                       <div className="flex items-center justify-between">
                         <span className="text-2xl font-bold text-red-500">
-                          ${product.price.toFixed(2)}
+                          {formatPriceSimple(product.price)}
                         </span>
                         <div className="flex items-center gap-2 bg-slate-100 rounded-lg p-1">
                           <button

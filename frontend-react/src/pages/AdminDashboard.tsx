@@ -7,6 +7,7 @@ import { Input } from '@/lib/ui/input';
 import { Textarea } from '@/lib/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/lib/ui/card';
 import { Package, Plus, Trash2, BarChart3, Loader2, ChevronRight } from 'lucide-react';
+import { formatPriceSimple } from '@/lib/priceFormatter';
 import axios from 'axios';
 
 interface Recommendation {
@@ -262,7 +263,7 @@ export const AdminDashboard: React.FC = () => {
 
                         <div>
                           <label className="block text-slate-300 text-sm font-semibold mb-2">
-                            Price ($)
+                            Price (₹)
                           </label>
                           <Input
                             type="number"
@@ -347,7 +348,7 @@ export const AdminDashboard: React.FC = () => {
 
                         <div>
                           <label className="block text-slate-300 text-sm font-semibold mb-2">
-                            Price ($)
+                            Price (₹)
                           </label>
                           <Input
                             type="number"
@@ -423,15 +424,27 @@ export const AdminDashboard: React.FC = () => {
                       whileHover={{ y: -4 }}
                     >
                       <Card className="bg-slate-800 border-slate-700 h-full flex flex-col hover:border-red-500/50 transition-colors">
-                        <div className="h-32 bg-gradient-to-br from-red-900 to-red-950 flex items-center justify-center">
-                          <span className="text-4xl text-red-400 font-bold">
+                        <div className="h-32 bg-gradient-to-br from-red-900 to-red-950 flex items-center justify-center relative overflow-hidden">
+                          {product.image_url ? (
+                            <img
+                              src={product.image_url}
+                              alt={product.name}
+                              className="w-full h-full object-cover"
+                              crossOrigin="anonymous"
+                              referrerPolicy="no-referrer"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = 'none';
+                              }}
+                            />
+                          ) : null}
+                          <span className="absolute text-4xl text-red-400 font-bold" style={{ display: product.image_url ? 'none' : 'block' }}>
                             {product.name.charAt(0)}
                           </span>
                         </div>
                         <CardHeader className="flex-1">
                           <CardTitle className="text-white">{product.name}</CardTitle>
                           <CardDescription className="text-slate-400">
-                            ${product.price.toFixed(2)}
+                            {formatPriceSimple(product.price)}
                           </CardDescription>
                           <p className="text-slate-400 text-sm mt-2">{product.description}</p>
                         </CardHeader>
