@@ -47,7 +47,12 @@ export const Landing: React.FC = () => {
     setError('');
     try {
       await login(data.email, data.password);
-      navigate('/dashboard');
+      const user = useAuthStore.getState().user;
+      if (user?.role === 'admin') {
+        navigate('/admin');
+      } else {
+        navigate('/shopping');
+      }
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Login failed');
     } finally {
@@ -60,7 +65,12 @@ export const Landing: React.FC = () => {
     setError('');
     try {
       await signup(data.email, data.password, data.role);
-      navigate('/dashboard');
+      const user = useAuthStore.getState().user;
+      if (user?.role === 'admin') {
+        navigate('/admin');
+      } else {
+        navigate('/shopping');
+      }
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Signup failed');
     } finally {

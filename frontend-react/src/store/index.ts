@@ -41,6 +41,7 @@ interface CartState {
 interface ProductState {
   products: Product[];
   addProduct: (name: string, price: number, description: string, image_url?: string) => Promise<void>;
+  updateProduct: (id: number, name: string, price: number, description: string, image_url?: string) => Promise<void>;
   deleteProduct: (id: number) => Promise<void>;
   fetchProducts: () => Promise<void>;
   loading: boolean;
@@ -201,6 +202,22 @@ export const useProductStore = create<ProductState>((set) => ({
       });
       set((state) => ({
         products: state.products.filter(p => p.id !== id),
+      }));
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  updateProduct: async (id, name, price, description, image_url) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.put(
+        `${API_BASE}/products/${id}`,
+        { name, price, description, image_url },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      set((state) => ({
+        products: state.products.map(p => p.id === id ? response.data : p),
       }));
     } catch (error) {
       throw error;

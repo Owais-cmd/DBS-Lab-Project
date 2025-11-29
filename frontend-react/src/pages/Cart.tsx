@@ -59,20 +59,6 @@ export const CartPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      {/* Header */}
-      <header className="bg-white shadow-sm sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <button
-            onClick={() => navigate('/shopping')}
-            className="text-slate-600 hover:text-slate-900 font-semibold flex items-center gap-2"
-          >
-            ← Back to Shopping
-          </button>
-          <h1 className="text-2xl font-bold text-slate-900">Shopping Cart</h1>
-          <div />
-        </div>
-      </header>
-
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-12">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

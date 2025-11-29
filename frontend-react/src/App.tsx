@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from '@/store';
+import NavBar from '@/components/NavBar';
 import Landing from '@/pages/Landing';
 import ShoppingPage from '@/pages/Shopping';
 import CartPage from '@/pages/Cart';
@@ -33,7 +34,12 @@ function App() {
           path="/shopping"
           element={
             <ProtectedRoute>
-              <ShoppingPage />
+              <div className="flex flex-col min-h-screen">
+                <NavBar />
+                <div className="flex-1">
+                  <ShoppingPage />
+                </div>
+              </div>
             </ProtectedRoute>
           }
         />
@@ -41,7 +47,12 @@ function App() {
           path="/cart"
           element={
             <ProtectedRoute>
-              <CartPage />
+              <div className="flex flex-col min-h-screen">
+                <NavBar />
+                <div className="flex-1">
+                  <CartPage />
+                </div>
+              </div>
             </ProtectedRoute>
           }
         />
@@ -50,7 +61,12 @@ function App() {
           path="/admin"
           element={
             <ProtectedRoute requireAdmin>
-              <AdminDashboard />
+              <div className="flex flex-col min-h-screen">
+                <NavBar />
+                <div className="flex-1">
+                  <AdminDashboard />
+                </div>
+              </div>
             </ProtectedRoute>
           }
         />

@@ -31,10 +31,12 @@ interface Index {
 export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
-  const { products, addProduct, deleteProduct, fetchProducts } = useProductStore();
+  const { products, addProduct, updateProduct, deleteProduct, fetchProducts } = useProductStore();
 
   const [activeTab, setActiveTab] = useState<'products' | 'analysis'>('products');
   const [showAddProduct, setShowAddProduct] = useState(false);
+  const [showEditProduct, setShowEditProduct] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [formData, setFormData] = useState({ name: '', price: '', description: '', image_url: '' });
   const [loading, setLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -113,6 +115,43 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
+  const handleEditClick = (product: any) => {
+    setEditingId(product.id);
+    setFormData({
+      name: product.name,
+      price: product.price.toString(),
+      description: product.description,
+      image_url: product.image_url || ''
+    });
+    setShowEditProduct(true);
+  };
+
+  const handleUpdateProduct = async () => {
+    if (!formData.name || !formData.price || !formData.description) {
+      alert('Please fill all required fields');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await updateProduct(
+        editingId!,
+        formData.name,
+        parseFloat(formData.price),
+        formData.description,
+        formData.image_url
+      );
+      setFormData({ name: '', price: '', description: '', image_url: '' });
+      setShowEditProduct(false);
+      setEditingId(null);
+    } catch (error) {
+      console.error('Failed to update product:', error);
+      alert('Failed to update product');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleApplyIndex = async (rec: Recommendation) => {
     setApplyingIndex(true);
     try {
@@ -139,29 +178,6 @@ export const AdminDashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-      {/* Header */}
-      <header className="bg-slate-950/50 backdrop-blur-sm border-b border-slate-800 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-              <Package className="text-red-500" />
-              Admin Dashboard
-            </h1>
-            <p className="text-slate-400 text-sm">Welcome, {user?.email}</p>
-          </div>
-          <Button
-            onClick={() => {
-              logout();
-              navigate('/');
-            }}
-            variant="outline"
-            className="border-slate-700 text-white hover:bg-slate-800"
-          >
-            Logout
-          </Button>
-        </div>
-      </header>
-
       {/* Navigation Tabs */}
       <div className="bg-slate-950/30 border-b border-slate-800">
         <div className="max-w-7xl mx-auto px-4 flex gap-4">
@@ -294,7 +310,96 @@ export const AdminDashboard: React.FC = () => {
                           <Button
                             onClick={() => setShowAddProduct(false)}
                             variant="outline"
-                            className="flex-1 border-slate-600 text-white hover:bg-slate-700"
+                            className="flex-1 border-slate-600 text-white hover:bg-slate-800 hover:text-white bg-slate-700"
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                )}
+
+                {showEditProduct && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    className="mb-8"
+                  >
+                    <Card className="bg-slate-800 border-slate-700">
+                      <CardHeader>
+                        <CardTitle className="text-white">Update Product</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div>
+                          <label className="block text-slate-300 text-sm font-semibold mb-2">
+                            Product Name
+                          </label>
+                          <Input
+                            type="text"
+                            placeholder="Enter product name"
+                            value={formData.name}
+                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                            className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-slate-300 text-sm font-semibold mb-2">
+                            Price ($)
+                          </label>
+                          <Input
+                            type="number"
+                            placeholder="Enter price"
+                            value={formData.price}
+                            onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                            className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-slate-300 text-sm font-semibold mb-2">
+                            Description
+                          </label>
+                          <Textarea
+                            placeholder="Enter product description"
+                            value={formData.description}
+                            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                            className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-slate-300 text-sm font-semibold mb-2">
+                            Image URL (Optional)
+                          </label>
+                          <Input
+                            type="text"
+                            placeholder="Enter image URL"
+                            value={formData.image_url}
+                            onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+                            className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-500"
+                          />
+                        </div>
+
+                        <div className="flex gap-3 pt-4">
+                          <Button
+                            onClick={handleUpdateProduct}
+                            disabled={loading}
+                            className="flex-1 bg-blue-500 hover:bg-blue-600"
+                          >
+                            {loading ? <Loader2 size={16} className="animate-spin inline mr-2" /> : null}
+                            Update Product
+                          </Button>
+                          <Button
+                            onClick={() => {
+                              setShowEditProduct(false);
+                              setEditingId(null);
+                              setFormData({ name: '', price: '', description: '', image_url: '' });
+                            }}
+                            variant="outline"
+                            className="flex-1 border-slate-600 text-white hover:bg-slate-800 hover:text-white bg-slate-700"
                           >
                             Cancel
                           </Button>
@@ -331,29 +436,54 @@ export const AdminDashboard: React.FC = () => {
                           <p className="text-slate-400 text-sm mt-2">{product.description}</p>
                         </CardHeader>
                         <CardContent>
-                          <motion.button
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
-                            onClick={() => handleDeleteProduct(product.id)}
-                            disabled={deletingId === product.id}
-                            className={`w-full px-4 py-2 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${
-                              deletingId === product.id
-                                ? 'bg-gray-600 text-gray-300'
-                                : 'bg-red-600 hover:bg-red-700 text-white'
-                            }`}
-                          >
-                            {deletingId === product.id ? (
-                              <>
-                                <Loader2 size={16} className="animate-spin" />
-                                Deleting...
-                              </>
-                            ) : (
-                              <>
-                                <Trash2 size={16} />
-                                Delete
-                              </>
-                            )}
-                          </motion.button>
+                          <div className="flex gap-3">
+                            <motion.button
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              onClick={() => handleEditClick(product)}
+                              disabled={loading}
+                              className={`flex-1 px-4 py-2 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${
+                                loading
+                                  ? 'bg-gray-600 text-gray-300'
+                                  : 'bg-blue-600 hover:bg-blue-700 text-white'
+                              }`}
+                            >
+                              {loading && editingId === product.id ? (
+                                <>
+                                  <Loader2 size={16} className="animate-spin" />
+                                  Updating...
+                                </>
+                              ) : (
+                                <>
+                                  <Package size={16} />
+                                  Update
+                                </>
+                              )}
+                            </motion.button>
+                            <motion.button
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              onClick={() => handleDeleteProduct(product.id)}
+                              disabled={deletingId === product.id}
+                              className={`flex-1 px-4 py-2 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${
+                                deletingId === product.id
+                                  ? 'bg-gray-600 text-gray-300'
+                                  : 'bg-red-600 hover:bg-red-700 text-white'
+                              }`}
+                            >
+                              {deletingId === product.id ? (
+                                <>
+                                  <Loader2 size={16} className="animate-spin" />
+                                  Deleting...
+                                </>
+                              ) : (
+                                <>
+                                  <Trash2 size={16} />
+                                  Delete
+                                </>
+                              )}
+                            </motion.button>
+                          </div>
                         </CardContent>
                       </Card>
                     </motion.div>

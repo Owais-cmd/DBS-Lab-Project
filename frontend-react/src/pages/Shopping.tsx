@@ -45,31 +45,6 @@ export const ShoppingPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      {/* Header */}
-      <header className="bg-white shadow-sm sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-slate-900">ShopHub</h1>
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <ShoppingCart className="text-slate-600" size={24} />
-              {items.length > 0 && (
-                <motion.span
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center"
-                >
-                  {items.length}
-                </motion.span>
-              )}
-            </div>
-            <div className="text-right">
-              <p className="text-sm text-slate-600">Cart Total</p>
-              <p className="font-bold text-slate-900">${cartTotal.toFixed(2)}</p>
-            </div>
-          </div>
-        </div>
-      </header>
-
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-12">
         {/* Hero Section */}

@@ -322,6 +322,28 @@ def delete_product(
     db.commit()
     return {"message": "Product deleted"}
 
+@app.put("/products/{product_id}", response_model=ProductResponse)
+def update_product(
+    product_id: int,
+    product: ProductCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    db_product = db.query(Product).filter(Product.id == product_id).first()
+    if not db_product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    db_product.name = product.name
+    db_product.price = product.price
+    db_product.description = product.description
+    db_product.image_url = product.image_url
+    db.commit()
+    db.refresh(db_product)
+    return db_product
+
 # ===== Cart Endpoints =====
 @app.get("/cart")
 def get_cart(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
