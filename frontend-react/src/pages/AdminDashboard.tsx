@@ -93,7 +93,11 @@ export const AdminDashboard: React.FC = () => {
 
     setLoading(true);
     try {
-      await addProduct(formData.name, parseFloat(formData.price), formData.description, formData.image_url);
+      // Admin enters price in INR in the form (label shows "Price (₹)").
+      // Convert INR back to USD before sending to backend (backend stores price in USD).
+      const priceINR = parseFloat(formData.price as unknown as string);
+      const priceUSD = Number((priceINR / 83).toFixed(2));
+      await addProduct(formData.name, priceUSD, formData.description, formData.image_url);
       setFormData({ name: '', price: '', description: '', image_url: '' });
       setShowAddProduct(false);
     } catch (error) {
@@ -120,7 +124,8 @@ export const AdminDashboard: React.FC = () => {
     setEditingId(product.id);
     setFormData({
       name: product.name,
-      price: product.price.toString(),
+      // Display price in INR for the admin form (convert stored USD -> INR)
+      price: Math.round(product.price * 83).toString(),
       description: product.description,
       image_url: product.image_url || ''
     });
@@ -135,10 +140,13 @@ export const AdminDashboard: React.FC = () => {
 
     setLoading(true);
     try {
+      // Convert entered INR back to USD before sending to backend
+      const priceINR = parseFloat(formData.price as unknown as string);
+      const priceUSD = Number((priceINR / 83).toFixed(2));
       await updateProduct(
         editingId!,
         formData.name,
-        parseFloat(formData.price),
+        priceUSD,
         formData.description,
         formData.image_url
       );

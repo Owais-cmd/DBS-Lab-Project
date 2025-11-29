@@ -75,8 +75,8 @@ export const NavBar: React.FC = () => {
           <div className="flex items-center gap-4">
             {isAuthenticated && user ? (
               <>
-                {/* Cart Icon with Badge and Total (Shopping/Admin Pages) */}
-                {!isCartPage && (
+                {/* Cart Icon with Badge and Total (Shopping Pages only - not for admin) */}
+                {!isCartPage && user.role !== 'admin' && (
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
@@ -96,8 +96,8 @@ export const NavBar: React.FC = () => {
                   </motion.button>
                 )}
 
-                {/* Cart Total Display (Shopping/Admin Pages) */}
-                {!isCartPage && items.length > 0 && (
+                {/* Cart Total Display (Shopping Pages only - not for admin) */}
+                {!isCartPage && items.length > 0 && user.role !== 'admin' && (
                   <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-red-50 rounded-lg">
                     <span className="text-xs text-gray-600">Total:</span>
                     <span className="font-bold text-red-600">${cartTotal.toFixed(2)}</span>
