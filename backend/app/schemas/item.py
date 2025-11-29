@@ -23,7 +23,7 @@ class ItemUpdate(BaseModel):
 
 class ItemResponse(ItemBase):
     id: int
-    created_at: datetime
+    created_at: Optional[datetime]
     name: str
     description: Optional[str]
     price: float

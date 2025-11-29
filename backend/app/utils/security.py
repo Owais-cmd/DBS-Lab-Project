@@ -29,6 +29,8 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     """Create a JWT access token."""
     to_encode = data.copy()
+    if "sub" in to_encode:
+        to_encode["sub"] = str(to_encode["sub"])
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
@@ -43,8 +45,10 @@ def decode_token(token: str) -> Optional[dict]:
     """Decode a JWT token."""
     try:
         payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
+        print("Decoded JWT payload:", payload)  # Debug print
         return payload
-    except JWTError:
+    except JWTError as e:
+        print("JWT decode error:", e) 
         return None
 
 
@@ -64,6 +68,7 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
     
     # Decode token
     payload = decode_token(token)
+    print("Decoded payload:", payload)  # Debug print
     if payload is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -71,7 +76,7 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
         )
     
     # Get user_id from payload
-    user_id: int = payload.get("sub")
+    user_id: int = int(payload.get("sub"))
     if user_id is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

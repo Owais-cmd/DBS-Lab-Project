@@ -8,6 +8,17 @@ class OrderItemBase(BaseModel):
     quantity: int
     price: Optional[float] = None
 
+class ItemResponse(BaseModel):
+    id: int
+    name: str
+    description: Optional[str] = None
+    price: float
+    category: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
 
 class OrderItemResponse(OrderItemBase):
     id: int
@@ -15,7 +26,7 @@ class OrderItemResponse(OrderItemBase):
     item_id: int
     quantity: int
     price: float
-    item: Optional[dict] = None  # Can include item details if needed
+    item: Optional[ItemResponse] = None  # Can include item details if needed
     
     class Config:
         from_attributes = True
@@ -38,7 +49,7 @@ class OrderBase(BaseModel):
 class OrderResponse(OrderBase):
     id: int
     user_id: int
-    created_at: datetime
+    created_at: Optional[datetime]
     items: List[OrderItemResponse] = []
     
     class Config:

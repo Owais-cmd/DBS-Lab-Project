@@ -1,7 +1,7 @@
 # backend/app/models.py
 from sqlalchemy import (
     Column, Integer, String, Boolean, Numeric,
-    ForeignKey, DateTime, Text, Enum
+    ForeignKey, DateTime, Text, Enum, func
 )
 from sqlalchemy.orm import relationship, declarative_base
 import datetime
@@ -46,7 +46,7 @@ class Item(Base):
     description = Column(Text)
     price = Column(Numeric, default=0)
     category = Column(Text)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow,server_default=func.now())
     # one item appears in many order-items
     order_items = relationship("OrderItem", back_populates="item")
 

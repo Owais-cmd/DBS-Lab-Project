@@ -63,7 +63,7 @@ class MetricsManager:
                 "user_id": order.user_id,
                 "status": order.status,
                 "total_amount": float(order.total_amount),
-                "created_at": order.created_at.isoformat(),
+                "created_at": order.created_at.isoformat() if order.created_at else None,
                 "item_count": len(order.items)
             }
             for order in results
@@ -80,7 +80,7 @@ class MetricsManager:
         # Total spent
         total_spent = self.db.query(func.sum(Order.total_amount)).filter(
             Order.user_id == user_id,
-            Order.status == "placed"
+            Order.status == "placed" or Order.status == "delivered"
         ).scalar() or 0
         
         # Most ordered category
@@ -93,7 +93,7 @@ class MetricsManager:
             Order, OrderItem.order_id == Order.id
         ).filter(
             Order.user_id == user_id,
-            Order.status == "placed"
+            Order.status == "placed" or Order.status == "delivered"
         ).group_by(
             Item.category
         ).order_by(

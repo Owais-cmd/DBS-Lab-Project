@@ -28,7 +28,7 @@ def get_items(
     search: Optional[str] = None,
     category: Optional[str] = None,
     skip: int = 0, 
-    limit: int = 100
+    limit: int = 10
 ) -> List[Item]:
     """Get list of items with optional filters."""
     query = db.query(Item)

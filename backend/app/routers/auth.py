@@ -48,7 +48,7 @@ def login(request: LoginRequest, response: Response, db: Session = Depends(get_d
         )
     
     # Create access token
-    access_token = create_access_token(data={"sub": user.id})
+    access_token = create_access_token(data={"sub": str(user.id)})
     
     # Set cookie
     response.set_cookie(
