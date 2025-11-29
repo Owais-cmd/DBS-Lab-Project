@@ -1,12 +1,22 @@
 # backend/app/models.py
 from sqlalchemy import (
     Column, Integer, String, Boolean, Numeric,
-    ForeignKey, DateTime, Text 
+    ForeignKey, DateTime, Text, Enum, func
 )
 from sqlalchemy.orm import relationship, declarative_base
 import datetime
+import enum
 
 Base = declarative_base()
+
+# -------------------------
+# ENUMS
+# -------------------------
+class OrderStatus(enum.Enum):
+    cart = "cart"
+    placed = "placed"
+    cancelled = "cancelled"
+    delivered = "delivered"
 
 # -------------------------
 # USER TABLE
@@ -17,10 +27,10 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(Text, unique=True, index=True, nullable=False)
     hashed_password = Column(Text, nullable=False)
+    name = Column(Text, nullable=False)
     is_admin = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     city = Column(Text, nullable=False)
-    age = Column(Integer, nullable=False)
 
     # relationship: ONE user → MANY orders
     orders = relationship("Order", back_populates="user")
@@ -33,8 +43,10 @@ class Item(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(Text, nullable=False)
+    description = Column(Text)
     price = Column(Numeric, default=0)
     category = Column(Text)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow,server_default=func.now())
     # one item appears in many order-items
     order_items = relationship("OrderItem", back_populates="item")
 
@@ -46,7 +58,8 @@ class Order(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    status = Column(Text, default="placed")  # placed, canceled, delivered
+    status = Column(Text, default="cart")  # cart, placed, cancelled, delivered
+    total_amount = Column(Numeric, default=0)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     # relation back to user
