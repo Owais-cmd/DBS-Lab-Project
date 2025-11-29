@@ -12,6 +12,10 @@ class OrderItemBase(BaseModel):
 class OrderItemResponse(OrderItemBase):
     id: int
     order_id: int
+    item_id: int
+    quantity: int
+    price: float
+    item: Optional[dict] = None  # Can include item details if needed
     
     class Config:
         from_attributes = True

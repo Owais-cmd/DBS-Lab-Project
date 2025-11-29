@@ -24,6 +24,10 @@ class ItemUpdate(BaseModel):
 class ItemResponse(ItemBase):
     id: int
     created_at: datetime
+    name: str
+    description: Optional[str]
+    price: float
+    category: Optional[str]
     
     class Config:
         from_attributes = True

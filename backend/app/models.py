@@ -42,7 +42,7 @@ class Item(Base):
     __tablename__ = "items"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(Text, unique=True, nullable=False)
+    name = Column(Text, nullable=False)
     description = Column(Text)
     price = Column(Numeric, default=0)
     category = Column(Text)

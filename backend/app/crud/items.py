@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from ..models import Item
+from sqlalchemy import func
 
 
 def create_item(db: Session, name: str, description: Optional[str], price: float, category: Optional[str]) -> Item:
@@ -37,6 +38,8 @@ def get_items(
     
     if category:
         query = query.filter(Item.category == category)
+
+    query = query.order_by(func.random())
     
     return query.offset(skip).limit(limit).all()
 
