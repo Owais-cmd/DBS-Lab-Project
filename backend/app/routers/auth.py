@@ -59,6 +59,7 @@ def login(request: LoginRequest, response: Response, db: Session = Depends(get_d
         samesite=settings.COOKIE_SAMESITE,
         max_age=settings.JWT_EXPIRATION_MINUTES * 60
     )
+    print("response cookies after login:", response.headers.getlist('set-cookie'))  # Debug print
     
     return {"msg": "ok"}
 

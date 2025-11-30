@@ -41,6 +41,11 @@ class RemoveFromCartRequest(BaseModel):
     item_id: int
 
 
+class UpdateCartRequest(BaseModel):
+    item_id: int
+    quantity: int
+
+
 class OrderBase(BaseModel):
     status: str
     total_amount: float

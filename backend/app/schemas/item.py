@@ -8,6 +8,7 @@ class ItemBase(BaseModel):
     description: Optional[str] = None
     price: float
     category: Optional[str] = None
+    image_url: Optional[str] = None
 
 
 class ItemCreate(ItemBase):
@@ -19,6 +20,7 @@ class ItemUpdate(BaseModel):
     description: Optional[str] = None
     price: Optional[float] = None
     category: Optional[str] = None
+    image_url: Optional[str] = None
 
 
 class ItemResponse(ItemBase):

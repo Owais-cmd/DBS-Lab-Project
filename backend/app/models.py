@@ -46,9 +46,10 @@ class Item(Base):
     description = Column(Text)
     price = Column(Numeric, default=0)
     category = Column(Text)
+    image_url = Column(Text)
     created_at = Column(DateTime, default=datetime.datetime.utcnow,server_default=func.now())
     # one item appears in many order-items
-    order_items = relationship("OrderItem", back_populates="item")
+    order_items = relationship("OrderItem", back_populates="item", passive_deletes=True)
 
 # -------------------------
 # ORDER TABLE
@@ -66,7 +67,7 @@ class Order(Base):
     user = relationship("User", back_populates="orders")
 
     # one order → many order-items
-    items = relationship("OrderItem", back_populates="order")
+    items = relationship("OrderItem", back_populates="order", passive_deletes=True)
 
 # -------------------------
 # ORDER-ITEM TABLE (line items)
@@ -76,7 +77,11 @@ class OrderItem(Base):
 
     id = Column(Integer, primary_key=True)
     order_id = Column(Integer, ForeignKey("orders.id"), nullable=False)
-    item_id = Column(Integer, ForeignKey("items.id"), nullable=False)
+    item_id = Column(
+    Integer,
+    ForeignKey("items.id", ondelete="CASCADE"),
+    nullable=False
+)
 
     quantity = Column(Integer, default=1)
     price = Column(Numeric)  # price at time of purchase

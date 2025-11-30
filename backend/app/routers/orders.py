@@ -1,12 +1,42 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from ..database import get_db
-from ..schemas.order import AddToCartRequest, RemoveFromCartRequest, OrderResponse
+from ..schemas.order import AddToCartRequest, RemoveFromCartRequest, UpdateCartRequest, OrderResponse
 from ..models import User
 from ..utils.security import get_current_user, require_admin
 from ..crud import orders as crud_orders
 
 router = APIRouter(tags=["Orders"])
+
+
+@router.get("/cart", response_model=OrderResponse)
+def get_cart(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get current user's cart.
+    """
+    cart = crud_orders.get_or_create_cart(db=db, user_id=current_user.id)
+    return cart
+
+
+@router.post("/cart/update", response_model=OrderResponse)
+def update_cart(
+    request: UpdateCartRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Update item quantity in cart.
+    """
+    cart = crud_orders.update_cart_item(
+        db=db,
+        user_id=current_user.id,
+        item_id=request.item_id,
+        quantity=request.quantity
+    )
+    return cart
 
 
 @router.post("/cart/add", response_model=OrderResponse)

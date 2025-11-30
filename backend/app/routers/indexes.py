@@ -22,14 +22,48 @@ def get_conn():
     return psycopg2.connect(DATABASE_URL)
 
 @router.get("/recommendations")
-def get_recommendations():
+def get_recommendations(admin: User = Depends(require_admin)):
     if not os.path.exists(RECS_FILE):
         return []
     with open(RECS_FILE, 'r') as f:
         recs = json.load(f)
-    return recs
+    
+    # Check if indexes actually exist in the database
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        # Get all existing indexes for the tables in recommendations
+        cur.execute("""
+            SELECT tablename, indexname 
+            FROM pg_indexes 
+            WHERE schemaname = 'public'
+        """)
+        existing_indexes = cur.fetchall()
+        
+        # Create a set of (table, column) pairs from existing indexes
+        # Index name format: idx_tablename_columnname
+        indexed_columns = set()
+        for table, idx_name in existing_indexes:
+            # Parse index name to extract column (format: idx_table_column)
+            if idx_name.startswith('idx_'):
+                parts = idx_name.split('_', 2)  # Split into ['idx', 'table', 'column']
+                if len(parts) >= 3:
+                    column = parts[2]
+                    indexed_columns.add((table, column))
+        
+        # Update index_exists field for each recommendation
+        for rec in recs:
+            rec['index_exists'] = (rec['table'], rec['column']) in indexed_columns
+        
+        return recs
+    except Exception as e:
+        # If there's an error, return recommendations as-is
+        return recs
+    finally:
+        cur.close()
+        conn.close()
 
-@router.get("/indexes")
+@router.get("/list")
 def get_indexes(admin: User = Depends(require_admin)):
     """Get current list of indexes created by the system"""
     conn = get_conn()

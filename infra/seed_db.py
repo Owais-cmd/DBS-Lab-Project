@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS items (
     description text,
     category text,
     price numeric DEFAULT 0,
+    image_url text,
     created_at timestamp DEFAULT CURRENT_TIMESTAMP
 );
 """)
@@ -79,9 +80,10 @@ for i in range(1, NUM_USERS + 1):
 # Insert items
 NUM_ITEMS = 200
 for i in range(1, NUM_ITEMS + 1):
+    image_url = f"https://picsum.photos/seed/{i}/400/300"
     cur.execute(
-        "INSERT INTO items (name, description, category, price) VALUES (%s, %s, %s, %s)",
-        (f"Item {i}", f"Description for item {i}", choice(item_categories), randint(50, 5000))
+        "INSERT INTO items (name, description, category, price, image_url) VALUES (%s, %s, %s, %s, %s)",
+        (f"Item {i}", f"Description for item {i}", choice(item_categories), randint(50, 5000), image_url)
     )
 
 # Insert orders and order_items

@@ -16,8 +16,8 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     
     # Cookie
-    COOKIE_SECURE: bool = False  # Set True in production
-    COOKIE_SAMESITE: str = "lax"
+    COOKIE_SECURE: bool = True  # Set True in production
+    COOKIE_SAMESITE: str = "none"
     
     class Config:
         env_file = ".env"

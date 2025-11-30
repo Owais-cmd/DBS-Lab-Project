@@ -59,7 +59,8 @@ def create_item(
         name=item.name,
         description=item.description,
         price=item.price,
-        category=item.category
+        category=item.category,
+        image_url=item.image_url
     )
     return db_item
 
@@ -80,7 +81,8 @@ def update_item(
         name=item_update.name,
         description=item_update.description,
         price=item_update.price,
-        category=item_update.category
+        category=item_update.category,
+        image_url=item_update.image_url
     )
     
     if not updated_item:
@@ -101,7 +103,7 @@ def delete_item(
     """
     Delete an item (admin only).
     """
-    success = crud_items.delete_item(db, item_id)
+    success = crud_items.delete_item(db, int(item_id))
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

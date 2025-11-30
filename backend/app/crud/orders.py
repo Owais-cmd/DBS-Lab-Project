@@ -70,6 +70,26 @@ def remove_item_from_cart(db: Session, user_id: int, item_id: int) -> Optional[O
     return cart
 
 
+def update_cart_item(db: Session, user_id: int, item_id: int, quantity: int) -> Optional[Order]:
+    """Update quantity of item in cart."""
+    cart = get_or_create_cart(db, user_id)
+    
+    order_item = db.query(OrderItem).filter(
+        OrderItem.order_id == cart.id,
+        OrderItem.item_id == item_id
+    ).first()
+    
+    if order_item:
+        if quantity <= 0:
+            db.delete(order_item)
+        else:
+            order_item.quantity = quantity
+        db.commit()
+        db.refresh(cart)
+    
+    return cart
+
+
 def place_order(db: Session, user_id: int) -> Optional[Order]:
     """Convert cart to placed order."""
     cart = db.query(Order).filter(
