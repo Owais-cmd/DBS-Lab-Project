@@ -1,19 +1,30 @@
 # app/main.py
 import os
 import json
-from fastapi import FastAPI, HTTPException, Depends,Form
+from fastapi import FastAPI, HTTPException, Depends, Form
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import psycopg2
-from database import get_db,init_db
-from models import User, Item, Order , OrderItem
+from .database import get_db, init_db
+from .models import User, Item, Order, OrderItem
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 import time
 
+# Import all routers
+from .routers import (
+    auth_router,
+    users_router,
+    items_router,
+    orders_router,
+    metrics_router,
+    indexes_router
+)
+from .config import settings
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://demo:demo@localhost:5432/demo")
-RECS_FILE = os.path.join(os.path.dirname(__file__), "../../data/recommendations.json")
+
+DATABASE_URL = settings.DATABASE_URL
 AUDIT_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS index_audit (
   id serial PRIMARY KEY,
@@ -27,10 +38,33 @@ CREATE TABLE IF NOT EXISTS index_audit (
 );
 """
 
-app = FastAPI()
+app = FastAPI(
+    title=settings.APP_NAME,
+    description="Adaptive Ordering System with PostgreSQL Optimization",
+    version="1.0.0"
+)
+
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://localhost:8501","http://127.0.0.1:3000","http://localhost:5173"],  # Adjust for your frontend
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Include all routers
+app.include_router(auth_router)
+app.include_router(users_router)
+app.include_router(items_router)
+app.include_router(orders_router)
+app.include_router(metrics_router)
+app.include_router(indexes_router)
+
 
 def get_conn():
     return psycopg2.connect(DATABASE_URL)
+
 
 @app.on_event("startup")
 async def startup():
@@ -43,283 +77,12 @@ async def startup():
     cur.close()
     conn.close()
 
-@app.get("/recommendations")
-def get_recommendations():
-    if not os.path.exists(RECS_FILE):
-        return []
-    with open(RECS_FILE, 'r') as f:
-        recs = json.load(f)
-    return recs
 
-@app.get("/indexes")
-def get_indexes():
-    """Get current list of indexes created by the system"""
-    conn = get_conn()
-    cur = conn.cursor()
-    try:
-        # Get indexes from audit table that still exist in the database
-        # Get the most recent create action for each index that still exists
-        cur.execute("""
-            SELECT 
-                a.index_name,
-                a.table_name,
-                a.column_name,
-                a.ts as created_at,
-                a.user_name,
-                COALESCE(pg_size_pretty(pg_relation_size(i.indexname::regclass)), 'N/A') as size
-            FROM (
-                SELECT DISTINCT ON (index_name)
-                    index_name, table_name, column_name, ts, user_name
-                FROM index_audit
-                WHERE action = 'create'
-                ORDER BY index_name, ts DESC
-            ) a
-            JOIN pg_indexes i ON i.indexname = a.index_name
-            WHERE i.schemaname = 'public'
-            ORDER BY a.ts DESC;
-        """)
-        indexes = []
-        for row in cur.fetchall():
-            indexes.append({
-                "index_name": row[0],
-                "table_name": row[1],
-                "column_name": row[2],
-                "created_at": row[3].isoformat() if row[3] else None,
-                "user_name": row[4],
-                "size": row[5] if row[5] else "N/A"
-            })
-        return indexes
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        cur.close()
-        conn.close()
-
-class ApplyRequest(BaseModel):
-    table: str
-    column: str
-    force: bool = False
-    user: str = "api"
-
-@app.get("/ping")
-def ping():
-    return {"status":"ok"}
-
-@app.post("/apply")
-def apply_index(req: ApplyRequest):
-    # must set force true to actually create index
-    # build index name
-    idx_name = f"idx_{req.table}_{req.column}"
-    create_sql = f'CREATE INDEX CONCURRENTLY IF NOT EXISTS {idx_name} ON {req.table}({req.column});'
-    conn = get_conn()
-    conn.autocommit = True
-    cur = conn.cursor()
-    # simple dry-run: check if index exists
-    cur.execute("SELECT indexname FROM pg_indexes WHERE tablename=%s;", (req.table,))
-    existing = [r[0] for r in cur.fetchall()]
-    if req.force:
-        try:
-            # Check current indexes count from audit table (only successful creates)
-            if(idx_name in existing):
-                return {"status":"exists", "index": idx_name}
-            cur.execute("""SELECT *
-              FROM (
-                 SELECT DISTINCT ON (index_name)
-                    index_name, table_name, column_name, ts
-                    FROM index_audit
-                    WHERE action = 'create'
-                    AND index_name IN (
-                        SELECT indexname FROM pg_indexes 
-                        WHERE schemaname = 'public'
-                    )
-                ORDER BY index_name, ts DESC   -- pick the latest row per index
-                ) sub
-                ORDER BY ts ASC;                  -- now sort the final results
-            """)
-            current_indexes = cur.fetchall()
-
-            
-            # If we have 3 or more indexes, delete the oldest one
-            deleted_index = None
-            if len(current_indexes) >= 3:
-                oldest = current_indexes[0]  # oldest is first due to ORDER BY ts ASC
-                oldest_idx_name = oldest[0]
-                oldest_table = oldest[1]
-                
-                # Delete the oldest index
-                drop_sql = f'DROP INDEX CONCURRENTLY IF EXISTS {oldest_idx_name};'
-                try:
-                    cur.execute(drop_sql)
-                    # Audit the deletion
-                    cur.execute("INSERT INTO index_audit (action,index_name,table_name,column_name,user_name,details) VALUES (%s,%s,%s,%s,%s,%s);",
-                                ("delete", oldest_idx_name, oldest_table, oldest[2] if len(oldest) > 2 else None, req.user, json.dumps({"reason":"rotation_limit", "replaced_by": idx_name})))
-                    deleted_index = oldest_idx_name
-                except Exception as drop_err:
-                    # Log drop failure but continue with creation
-                    cur.execute("INSERT INTO index_audit (action,index_name,table_name,column_name,user_name,details) VALUES (%s,%s,%s,%s,%s,%s);",
-                                ("delete_failed", oldest_idx_name, oldest_table, oldest[2] if len(oldest) > 2 else None, req.user, json.dumps({"error": str(drop_err)})))
-            
-            # Create the new index
-            cur.execute(create_sql)
-            # audit entry
-            cur.execute("INSERT INTO index_audit (action,index_name,table_name,column_name,user_name,details) VALUES (%s,%s,%s,%s,%s,%s);",
-                        ("create", idx_name, req.table, req.column, req.user, json.dumps({"note":"applied via API"})))
-            conn.commit()
-            
-            result = {"status":"applied", "index": idx_name}
-            if deleted_index:
-                result["deleted_index"] = deleted_index
-            return result
-        except Exception as e:
-            # try to record failure
-            try:
-                cur.execute("INSERT INTO index_audit (action,index_name,table_name,column_name,user_name,details) VALUES (%s,%s,%s,%s,%s,%s);",
-                            ("create_failed", idx_name, req.table, req.column, req.user, json.dumps({"error": str(e)})))
-                conn.commit()
-            except:
-                pass
-            raise HTTPException(status_code=500, detail=str(e))
-    else:
-        return {"status":"dry-run", "index": idx_name, "exists": existing}
-
-
-
-@app.get("/byCity")
-def by_city(db: Session = Depends(get_db)):
-    results = (
-        db.query(User.city, func.count(User.id).label("user_count"))
-        .group_by(User.city)
-        .all()
-    )
-    return [{"city": city, "user_count": count} for city, count in results]
-
-@app.get("/status")
-def status(db: Session = Depends(get_db)):
-    results = (
-        db.query(Order.status, func.count(Order.id).label("order_count"))
-        .group_by(Order.status)
-        .all()
-    )
-    return [{"Status": status, "order_count": order_count} for status, order_count in results]
-
-@app.get("/byAge")
-def by_age(db: Session = Depends(get_db)):
-    results = (
-        db.query(User.age, func.count(User.id).label("user_count"))
-        .group_by(User.age)
-        .all()
-    )
-    return [{"Status": Age, "order_count": user_count} for Age, user_count in results]
-
-@app.get("/mostOrderedItem")
-def most_ordered_item(db: Session = Depends(get_db)):
-    results = (
-        db.query(
-            Item.id,
-            Item.name,
-            func.sum(OrderItem.quantity).label("total_ordered")
-        )
-        .join(OrderItem, Item.id == OrderItem.item_id)
-        .group_by(Item.id)
-        .order_by(func.sum(OrderItem.quantity).desc())
-        .first()
-    )
-    print(results)
-    return [{"id": results[0], "name": results[1],"total1_ordered":results[2]} ]
-
-@app.get("/expensiveOrders")
-def expensive_orders(db: Session = Depends(get_db)):
-    results = (
-        db.query(
-            Order.id,
-            func.sum(Item.price * OrderItem.quantity).label("total_price")
-        )
-        .join(OrderItem, Order.id == OrderItem.order_id)
-        .join(Item, Item.id == OrderItem.item_id)
-        .group_by(Order.id)
-        .order_by(func.sum(Item.price * OrderItem.quantity).desc())
-        .limit(10)
-        .all()
-    )
-    print(results)
-    return [{"id": results[0][0], "Sum": results[0][1]} ]
-
-@app.get("/comparison/{idx_name}")
-def comparison(idx_name: str, db: Session = Depends(get_db)):
-    try:
-        # 1️⃣ Get table + column for this index
-        result = db.execute(
-    text("""
-        SELECT tablename, indexdef
-        FROM pg_indexes
-        WHERE indexname = :idx_name
-    """),
-    {"idx_name": idx_name}
-).fetchone()
-
-        if not result:
-            raise HTTPException(404, detail="Index not found in pg_indexes")
-
-        table_name = result[0]
-
-        # extract column list
-        # indexdef example: CREATE INDEX idx_customer_name ON customers USING btree (name)
-        indexdef = result[1]
-        col_part = indexdef.split("(")[1].split(")")[0]   # -> "name"
-        column_list = col_part.split(",")
-
-        column_name = column_list[0].strip()  # assume single-column index
-
-        # -----------------------------------------------------------------------
-        # 2️⃣ Connect raw psycopg2 (needed to force index or seq scan)
-        # -----------------------------------------------------------------------
-        conn = get_conn()
-        cur = conn.cursor()
-
-        # -----------------------------------------------------------------------
-        # 3️⃣ FORCE SEQ SCAN
-        # -----------------------------------------------------------------------
-        cur.execute("SET enable_indexscan = OFF;")
-        cur.execute("SET enable_bitmapscan = OFF;")
-
-        seq_query = f"SELECT * FROM {table_name} WHERE {column_name} IS NOT NULL;"
-        
-        t1 = time.time()
-        cur.execute(seq_query)
-        cur.fetchall()
-        seq_time = time.time() - t1
-
-        # -----------------------------------------------------------------------
-        # 4️⃣ FORCE INDEX SCAN
-        # -----------------------------------------------------------------------
-        cur.execute("RESET enable_indexscan ;")
-        cur.execute("RESET enable_bitmapscan ;")
-
-        idx_query = f"SELECT * FROM {table_name} WHERE {column_name} IS NOT NULL;"
-
-        t2 = time.time()
-        cur.execute(idx_query)
-        cur.fetchall()
-        idx_time = time.time() - t2
-
-        # -----------------------------------------------------------------------
-        # 5️⃣ Return comparison
-        # -----------------------------------------------------------------------
-        return {
-            "index_name": idx_name,
-            "table": table_name,
-            "column": column_name,
-            "seq_scan_time": seq_time,
-            "index_scan_time": idx_time,
-            "faster_scan": "index_scan" if idx_time < seq_time else "seq_scan"
-        }
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-    finally:
-        try:
-            cur.close()
-            conn.close()
-        except:
-            pass
+@app.get("/")
+def root():
+    """Health check endpoint."""
+    return {
+        "status": "ok",
+        "app": settings.APP_NAME,
+        "version": "1.0.0"
+    }

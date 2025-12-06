@@ -1,10 +1,11 @@
 # backend/app/database.py
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from models import Base
+from .models import Base
+from .config import settings
 
 # --- Database URL ---
-DATABASE_URL = "postgresql://demo:demo@localhost:5432/demo"
+DATABASE_URL = settings.DATABASE_URL
 
 # --- Create the engine ---
 engine = create_engine(DATABASE_URL)

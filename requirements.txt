@@ -18,6 +18,7 @@ passlib[argon2]
 argon2-cffi
 python-jose[cryptography] 
 python-multipart
-pydantic 
+pydantic
+pydantic-settings
 email-validator 
 python-dotenv
