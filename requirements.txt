@@ -14,7 +14,8 @@ apscheduler
 joblib
 sqlalchemy 
 alembic
-passlib[bcrypt] 
+passlib[argon2]
+argon2-cffi
 python-jose[cryptography] 
 python-multipart
 pydantic
